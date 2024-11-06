@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Simulation</title>
+    <style>
+
+
+
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgb(0,0,0);
+        background-color: rgba(0,0,0,0.4);
+        padding-top: 10px;
+    }
+    .modal-content {
+        background-color: #fefefe;
+        margin: 5% auto;
+        padding: 10px;
+        border: 1px solid #888;
+        width: 80%;
+    }
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 4px;
+        font-weight: bold;
+    }
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
+    }
+
+
+
+        .two-column {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .two-column .column {
+            flex: 1;
+            min-width: 200px;
+        }
+        .chart-container {
+            margin-top: 20px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<button id="formulasButton">Formulas</button>
+<!-- Modal Dialog -->
+<div id="formulasModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Formulas</h3>
+<p>Average Purchase Price: (number of purchases * (-0.007)) + 8.7</p>
+<p>Max Average Purchase Price: 10</p>
+<p>Min Average Purchase Price: 0.5</p>
+<p>Net Profit: Sales - Costs</p>
+<p>Costs: Fixed Costs + Variable Costs</p>
+<p>Fixed Costs: Rent + Wages + Utilities + Marketing Cost</p>
+<p>Variable Costs: Number of Purchases * Average Purchase Price</p>
+<p>Bank Account: Initial Bank Account + Net Profit - Dividends</p>
+<p>Inventory: Previous Inventory + Purchases - Sales</p>
+<p>Sales: Number of Customers * Average Selling Price</p>
+
+    </div>
+</div>
+
+
+    <div class="two-column">
+        <div class="column">
+            <p>Date: <span id="date"></span></p>
+            <p>Inventory: <span id="inventory"></span></p>
+            <p>Number Of Customers: <span id="numberOfCustomers"></span></p>
+            <p>Vari Costs: <span id="variCosts"></span></p>
+            <p>Fixed Costs: <span id="fixedCosts"></span></p>
+            <p>Costs: <span id="costs"></span></p>
+            <p>Purchase: <span id="purchase"></span></p>
+            <p>Sales: <span id="sales"></span></p>
+            <p>Net Profit: <span id="netProfit"></span></p>
+            <p>Dividends: <span id="dividends"></span></p>
+            <p>Bank Account: <span id="bankAccount"></span></p>
+        </div>
+        <div class="column">
+            <label for="investment">Investment: </label>
+            <input type="number" id="investment" name="investment"><br>
+            <label for="rent">Rent: </label>
+            <input type="number" id="rent" name="rent" disabled><br>
+            <label for="wages">Wages: </label>
+            <input type="number" id="wages" name="wages" disabled><br>
+            <label for="utilities">Utilities: </label>
+            <input type="number" id="utilities" name="utilities" disabled><br>
+            <label for="marketingCost">Marketing Cost: </label>
+            <input type="number" id="marketingCost" name="marketingCost"><br>
+<label for="numberOfPurchases">Number Of Purchases: </label>
+<input type="number" id="numberOfPurchases" name="numberOfPurchases"><br>
+<label for="averagePurchasePrice">Average Purchase Price: </label>
+<input type="number" id="averagePurchasePrice" name="averagePurchasePrice" disabled><br>
+
+        <div>
+			Purchase Choice: <span id="PurchaseChoice"></span>
+			 <select id="PurchaseChoice">
+            <option value="China">China</option>
+            <option value="Mexico">Mexico</option>
+            <option value="Iran">Iran</option>
+
+        </select>
+        </div>
+
+
+            <label for="averageSellingPrice">Average Selling Price: </label>
+            <input type="number" id="averageSellingPrice" name="averageSellingPrice"><br>
+        
+<div class="control-panel">
+        <button id="nextMonthButton">Next Month</button>
+        <button id="restartButton">Restart</button>
+        <select id="modeSelector">
+            <option value="manual">Manual</option>
+            <option value="automatic">Automatic</option>
+        </select>
+    </div>
+    </div>
+
+
+
+    
+    <div class="two-column">
+        <div class="column">
+  		<div class="chart-container">
+        <canvas id="inventoryChart"></canvas>
+        <canvas id="salesChart"></canvas>
+    </div>
+        </div>
+        <div class="column">
+  		<div class="chart-container">
+        <canvas id="netProfitChart"></canvas>
+        <canvas id="bankAccountChart"></canvas>
+    </div>
+    </div>
+   </div>
+
+
+
+
+    <script>
+
+
+// Get the modal
+var modal = document.getElementById("formulasModal");
+
+// Get the button that opens the modal
+var btn = document.getElementById("formulasButton");
+
+// Get the <span> element that closes the modal
+var span = document.getElementsByClassName("close")[0];
+
+// When the user clicks the button, open the modal
+btn.onclick = function() {
+    modal.style.display = "block";
+}
+
+// When the user clicks on <span> (x), close the modal
+span.onclick = function() {
+    modal.style.display = "none";
+}
+
+// When the user clicks anywhere outside of the modal, close it
+window.onclick = function(event) {
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+}
+
+
+
+        let startingMonth;
+
+        // Placeholder variables for values that change monthly
+        let lastMonthCustomers = 0;
+        let lastMonthBankAccount = 0;
+        let lastMonthInventory = 0;
+
+        // Initialize Charts
+        const ctxInventory = document.getElementById('inventoryChart').getContext('2d');
+        const ctxSales = document.getElementById('salesChart').getContext('2d');
+        const ctxNetProfit = document.getElementById('netProfitChart').getContext('2d');
+        const ctxBankAccount = document.getElementById('bankAccountChart').getContext('2d');
+
+        const inventoryChart = new Chart(ctxInventory, {
+            type: 'line',
+            data: {
+                labels: [], // Dates will go here
+                datasets: [{
+                    label: 'Inventory',
+                    data: [], // Inventory data will go here
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Inventory'
+                        }
+                    }
+                }
+            }
+        });
+
+        const salesChart = new Chart(ctxSales, {
+            type: 'line',
+            data: {
+                labels: [], // Dates will go here
+                datasets: [{
+                    label: 'Sales',
+                    data: [], // Sales data will go here
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1,
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Sales'
+                        }
+                    }
+                }
+            }
+        });
+
+        const netProfitChart = new Chart(ctxNetProfit, {
+            type: 'line',
+            data: {
+                labels: [], // Dates will go here
+                datasets: [{
+                    label: 'Net Profit',
+                    data: [], // Net Profit data will go here
+                    borderColor: 'rgba(255, 206, 86, 1)',
+                    borderWidth: 1,
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Net Profit'
+                        }
+                    }
+                }
+            }
+        });
+
+        const bankAccountChart = new Chart(ctxBankAccount, {
+            type: 'line',
+            data: {
+                labels: [], // Dates will go here
+                datasets: [{
+                    label: 'Bank Account',
+                    data: [], // Bank Account data will go here
+                    borderColor: 'rgba(153, 102, 255, 1)',
+                    borderWidth: 1,
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Bank Account'
+                        }
+                    }
+                }
+            }
+        });
+
+
+
+
+        // Function to handle restart
+        function restartProgram() {
+            // Stop any running processes or intervals
+            // Replace with your specific stop logic if needed
+
+            // Reset any variables or states to their initial values
+            // Replace with your reset logic
+            console.log("Program restarted!");
+            // Example: Resetting variables
+            // variable1 = initialValue1;
+            // variable2 = initialValue2;
+            // ...
+
+            // Reload the page to start from the beginning
+            window.location.reload();
+        }
+
+        // Event listener for the restart button
+        document.getElementById('restartButton').addEventListener('click', restartProgram);
+    
+
+        // Function to set initial date and update monthly
+        function setInitialDate() {
+            const today = new Date();
+            const month = today.getMonth() + 1; // Months are zero-indexed
+            const year = today.getFullYear();
+            startingMonth = month;
+            document.getElementById('date').innerText = `${month.toString().padStart(2, '0')}/${year}`;
+        }
+
+        function updateDate() {
+            const currentDate = document.getElementById('date').innerText;
+            let [month, year] = currentDate.split('/').map(Number);
+            month += 1;
+            if (month > 12) {
+                month = 1;
+                year += 1;
+            }
+            document.getElementById('date').innerText = `${month.toString().padStart(2, '0')}/${year}`;
+
+            // Enable or disable yearly parameters
+            if (month === startingMonth) {
+                document.getElementById('rent').disabled = false;
+                document.getElementById('utilities').disabled = false; 
+                document.getElementById('wages').disabled = false;
+            } else {
+                document.getElementById('rent').disabled = true;
+                document.getElementById('utilities').disabled = true;
+                document.getElementById('wages').disabled = true;
+            }
+        }
+
+        // Function to calculate and update values
+        function updateValues() {
+            const investment = parseFloat(document.getElementById('investment').value) || 0;
+            const marketingCost = parseFloat(document.getElementById('marketingCost').value) || 0;
+            const rent = parseFloat(document.getElementById('rent').value) || 0;
+            const utilities = parseFloat(document.getElementById('utilities').value) || 0;
+            const wages = parseFloat(document.getElementById('wages').value) || 0;
+            const numberOfPurchases = parseFloat(document.getElementById('numberOfPurchases').value) || 0;
+            const averagePurchasePrice = parseFloat(document.getElementById('averagePurchasePrice').value) || 0;
+            const averageSellingPrice = parseFloat(document.getElementById('averageSellingPrice').value) || 0;
+
+            // Costs per Product Unit
+            // let costsPerProductUnit;
+            // if (averagePurchasePrice > 0 && averagePurchasePrice <= 2) {
+            //    costsPerProductUnit = 1;
+            // } else if (averagePurchasePrice > 2 && averagePurchasePrice <= 4) {
+            //     costsPerProductUnit = 2;
+            // } else if (averagePurchasePrice > 4 && averagePurchasePrice <= 6) {
+            //     costsPerProductUnit = 3;
+            // } else if (averagePurchasePrice > 6) {
+            //     costsPerProductUnit = 4;
+            // }
+
+            const costsPerProductUnit = (averagePurchasePrice * (-1.5)) + 16;
+
+
+            // Variable Costs
+            const variableCosts = costsPerProductUnit * numberOfPurchases;
+
+            // Fixed Costs
+            const fixedCosts = rent + wages + utilities;
+
+            // Total Costs
+            const totalCosts = variableCosts + fixedCosts + marketingCost;
+
+            // Number of Customers
+            const numberOfCustomers = (lastMonthCustomers * 0.5) + (marketingCost * 0.05);
+
+            // Average Cart Size
+            const ratio = averageSellingPrice / (averagePurchasePrice + costsPerProductUnit);
+            let averageCartSize;
+            if (ratio > 2) {
+                averageCartSize = ((lastMonthCustomers * 1) + (marketingCost * 0.05 * 2)) / (lastMonthCustomers + marketingCost * 0.05);
+            } else {
+                averageCartSize = ((lastMonthCustomers * 2) + (marketingCost * 0.05 * 5)) / (lastMonthCustomers + marketingCost * 0.05);
+            }
+
+            // Number of Sales
+            const numberOfSales = numberOfCustomers * averageCartSize;
+
+            // Purchase
+            const purchase = numberOfPurchases * averagePurchasePrice;
+
+            // Sales
+            const sales = numberOfSales * averageSellingPrice;
+
+            // Net Profit
+            const netProfit = sales - purchase - totalCosts;
+
+            // Dividends
+            const dividends = (investment * 0.25) / 12;
+
+            // Bank Account
+            const bankAccount = lastMonthBankAccount + netProfit - dividends;
+
+            // Inventory
+            const inventory = lastMonthInventory + numberOfPurchases - numberOfSales;
+
+            // Update the labels
+            document.getElementById('inventory').innerText = inventory.toFixed(2);
+            document.getElementById('numberOfCustomers').innerText = numberOfCustomers.toFixed(2);
+            document.getElementById('costs').innerText = totalCosts.toFixed(2);
+            document.getElementById('variCosts').innerText = variableCosts.toFixed(2);
+            document.getElementById('fixedCosts').innerText = fixedCosts.toFixed(2);
+            document.getElementById('purchase').innerText = purchase.toFixed(2);
+            document.getElementById('sales').innerText = sales.toFixed(2);
+            document.getElementById('dividends').innerText = dividends.toFixed(2);
+            document.getElementById('netProfit').innerText = netProfit.toFixed(2);
+            document.getElementById('bankAccount').innerText = bankAccount.toFixed(2);
+
+            // Update charts
+            const date = document.getElementById('date').innerText;
+            updateChart(inventoryChart, date, inventory);
+            updateChart(salesChart, date, sales);
+            updateChart(netProfitChart, date, netProfit);
+            updateChart(bankAccountChart, date, bankAccount);
+
+            // Set current values as last month values for the next calculation
+            lastMonthCustomers = numberOfCustomers;
+            lastMonthBankAccount = bankAccount;
+            lastMonthInventory = inventory;
+
+            // Update date for next month
+            updateDate();
+        }
+
+
+// Event listener for number of purchases input
+document.getElementById('numberOfPurchases').addEventListener('input', function() {
+    const numberOfPurchases = parseFloat(this.value) || 0;
+    const averagePurchasePriceInput = document.getElementById('averagePurchasePrice');
+
+    // Calculate average purchase price based on the formula
+    let averagePurchasePrice = (numberOfPurchases * (-0.007)) + 8.7;
+
+    // Apply limitations
+    if (averagePurchasePrice > 10) {
+        averagePurchasePrice = 10;
+    } else if (averagePurchasePrice < 0.5) {
+        averagePurchasePrice = 0.5;
+    }
+
+    // Update the average purchase price input field
+    averagePurchasePriceInput.value = averagePurchasePrice.toFixed(2);
+});
+
+
+
+
+        // Function to update charts
+        function updateChart(chart, label, data) {
+            chart.data.labels.push(label);
+            chart.data.datasets[0].data.push(data);
+            chart.update();
+        }
+
+        // Event listeners for buttons and selector
+        document.getElementById('restartButton').addEventListener('click', () => {
+            lastMonthCustomers = 0;
+            lastMonthBankAccount = 0;
+            lastMonthInventory = 0;
+            setInitialDate();
+        });
+
+        document.getElementById('nextMonthButton').addEventListener('click', updateValues);
+
+        document.getElementById('modeSelector').addEventListener('change', function() {
+            const mode = this.value;
+            if (mode === 'automatic') {
+                automaticSimulation();
+            } else {
+                clearInterval(intervalId);
+            }
+        });
+
+
+		// Purchase Choices
+		
+		document.getElementById('PurchaseChoice').addEventListener('change', function() {
+    const selectedValue = this.value;
+
+    switch (selectedValue) {
+        case 'China':
+            // Code to execute when China is selected
+            console.log('China selected');
+            break;
+        case 'Mexico':
+            // Code to execute when Mexico is selected
+            console.log('Mexico selected');
+            break;
+        case 'Iran':
+            // Code to execute when Iran is selected
+            console.log('Iran selected');
+            break;
+        default:
+            // Code to execute if none of the options match (optional)
+            console.log('No valid option selected');
+    }
+});
+
+
+        // Automatic simulation function
+        let intervalId;
+        function automaticSimulation() {
+            intervalId = setInterval(() => {
+                updateValues();
+            }, 10000); // Update every 10 seconds
+        }
+
+        // Initialize date on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            setInitialDate();
+
+            // Disable yearly parameters after initial input
+            document.getElementById('rent').disabled = false;
+            document.getElementById('utilities').disabled = false;
+            document.getElementById('wages').disabled = false;
+
+            // Event listener for investment input
+            document.getElementById('investment').addEventListener('change', function() {
+                // Set initial bank account value to investment value
+                const investmentValue = parseFloat(this.value) || 0;
+                document.getElementById('bankAccount').innerText = investmentValue.toFixed(2);
+                lastMonthBankAccount = investmentValue; // Update last month's bank account value
+
+
+                // Once investment is set, disable it
+                this.disabled = true;
+            });
+        });
+    </script>
+</body>
+</html>
